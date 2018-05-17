@@ -31,6 +31,42 @@ Or install it yourself as:
 You will have to register a new application on Microsoft Application Registration Portal before using the API.
 Read more at [OneDrive API Docs](https://github.com/OneDrive/onedrive-api-docs/blob/live/docs/rest-api/getting-started/graph-oauth.md).
 
+    od = OneDrive.new('a2b3c4d5-your-app-id', 'C8V3{your-app-secret(', 'https://your-callback/url')
+
+To start using `OneDrive` library, instanciate the class with your application information.
+
+---
+
+    od.root
+    od.get('/Folder1')
+    od.get('/File1.avi')
+
+Use `OneDrive#root` or `OneDrive#get` to get a drive item.
+
+---
+
+    od.root.children
+    od.root.children.grep(OneDriveDir)
+
+Use `OneDriveDir#children` to get contents of a directory.
+
+---
+
+    od.get('/File1.avi').save_as('/tmp/test.avi', overwrite: true) do |event, stat|
+      puts "Downloaded #{stat[:progress]} of #{stat[:total]}" if event == :progress
+    end
+
+Use `OneDriveFile#save_as` to download a file.
+
+---
+
+    od.get('/Folder1').upload('/tmp/test.avi', overwrite: true, target_name: 'party.avi') do |event, stat|
+      puts "Uploading #{stat[:progress]} of #{stat[:total]} for segment #{stat[:from]}-#{stat[:to]}" if event == :progress
+      puts "Uploaded segment #{stat[:from]}-#{stat[:to]}" if event == :finish_segment
+    end
+
+Use `OneDriveDir#upload` to upload a file to target directory.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/msg7086/rb1drv.
