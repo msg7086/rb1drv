@@ -1,5 +1,7 @@
 # Rb1drv
 
+[![Build Status](https://travis-ci.org/msg7086/rb1drv.svg?branch=master)](https://travis-ci.org/msg7086/rb1drv)
+
 Rb1drv is a Ruby SDK for Microsoft OneDrive service, providing a simple interface to access files inside OneDrive.
 
 Rb1drv allows you to list directories, upload or download files, etc.
