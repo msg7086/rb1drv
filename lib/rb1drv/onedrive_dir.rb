@@ -13,7 +13,7 @@ module Rb1drv
     # @return [Array<OneDriveDir,OneDriveFile>] directories and files whose parent is current directory
     def children
       return [] if child_count <= 0
-      @od.request("drive/items/#{@id}/children")['value'].map do |child|
+      @od.request("#{api_path}/children")['value'].map do |child|
         OneDriveItem.smart_new(@od, child)
       end
     end
@@ -27,7 +27,7 @@ module Rb1drv
     # @return [OneDriveDir,OneDriveFile] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
-      OneDriveItem.smart_new(@od, @od.request("drive/items/#{@id}:#{path}"))
+      OneDriveItem.smart_new(@od, @od.request("#{api_path}:#{path}"))
     end
 
     # Yes
@@ -55,9 +55,9 @@ module Rb1drv
     # @return [OneDriveDir] the directory you created
     def mkdir(name)
       newdir, *remainder = name.split('/')
-      subdir = @od.request("drive/items/#{@id}:/#{newdir}") rescue nil
+      subdir = @od.request("#{api_path}:/#{newdir}") rescue nil
       unless subdir
-        subdir = @od.request("drive/items/#{@id}/children",
+        subdir = @od.request("#{api_path}/children",
           name: newdir,
           folder: {},
           '@microsoft.graph.conflictBehavior': 'rename'
@@ -76,6 +76,7 @@ module Rb1drv
     # @param fragment_size [Integer] fragment size for each upload session, recommended to be multiple of 320KiB
     # @param chunk_size [Integer] IO size for each disk read request and progress notification
     # @param target_name [String] desired remote filename, a relative path to current directory
+    # @return [OneDriveFile,nil] uploaded file
     #
     # @yield [event, status] for receive progress notification
     # @yieldparam event [Symbol] event of this notification
@@ -83,6 +84,7 @@ module Rb1drv
     def upload(filename, overwrite: false, fragment_size: 41_943_040, chunk_size: 1_048_576, target_name: nil, &block)
       raise ArgumentError.new('File not found') unless File.exist?(filename)
       file_size = File.size(filename)
+      target_name ||= File.basename(filename)
       resume_file = "#{filename}.1drv_upload"
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
 
@@ -99,8 +101,7 @@ module Rb1drv
       end
 
       unless resume_session
-        target_name ||= File.basename(filename)
-        result = @od.request("drive/items/#{@id}:/#{target_name}:/createUploadSession", item: {'@microsoft.graph.conflictBehavior': overwrite ? 'replace' : 'rename'})
+        result = @od.request("#{api_path}:/#{target_name}:/createUploadSession", item: {'@microsoft.graph.conflictBehavior': overwrite ? 'replace' : 'rename'})
         resume_session = {
           'session_url' => result['uploadUrl'],
           'source_size' => File.size(filename),

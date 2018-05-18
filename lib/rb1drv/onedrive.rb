@@ -9,6 +9,8 @@ module Rb1drv
 
     # Get an object by an arbitary path.
     #
+    # TODO: API endpoint does not play well with remote files
+    #
     # @return [OneDriveDir,OneDriveFile] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
