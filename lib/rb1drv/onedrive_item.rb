@@ -18,7 +18,13 @@ module Rb1drv
     #
     # @return [OneDriveFile, OneDriveDir] instanciated drive item
     def self.smart_new(od, item_hash)
-      item_hash['file'] ? OneDriveFile.new(od, item_hash) : OneDriveDir.new(od, item_hash)
+      if item_hash['file']
+        OneDriveFile.new(od, item_hash)
+      elsif item_hash['folder']
+        OneDriveDir.new(od, item_hash)
+      elsif item_hash.dig('error', 'code') == 'itemNotFound'
+        OneDrive404.new
+      end
     end
 
     # @return [String] absolute path of current item
