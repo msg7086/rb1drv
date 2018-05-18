@@ -9,7 +9,7 @@ module Rb1drv
   class OneDrive
     attr_reader :oauth2_client, :logger, :access_token
     # Instanciates with app id and secret.
-    def initialize(client_id, client_secret, callback_url, logger=Logger.new(STDERR))
+    def initialize(client_id, client_secret, callback_url, logger=nil)
       @client_id = client_id
       @client_secret = client_secret
       @callback_url = callback_url
@@ -18,7 +18,7 @@ module Rb1drv
         authorize_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
         token_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
       @conn = Excon.new('https://graph.microsoft.com/', persistent: true)
-      @conn.logger = @logger
+      @conn.logger = @logger if @logger
     end
 
     # Issues requests to API endpoint.
@@ -29,7 +29,7 @@ module Rb1drv
     #
     # @return [Hash] response from API.
     def request(uri, data=nil, verb=:post)
-      @logger.info(uri)
+      @logger.info(uri) if @logger
       query = {
         path: File.join('v1.0/me/', uri),
         headers: {
@@ -39,7 +39,7 @@ module Rb1drv
       if data
         query[:body] = JSON.generate(data)
         query[:headers]['Content-Type'] = 'application/json'
-        @logger.info(query[:body])
+        @logger.info(query[:body]) if @logger
         verb = :post unless [:post, :put, :delete].include?(verb)
         response = @conn.send(verb, query)
       else
