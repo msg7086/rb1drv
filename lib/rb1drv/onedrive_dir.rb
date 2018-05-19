@@ -27,7 +27,7 @@ module Rb1drv
     # @return [OneDriveDir,OneDriveFile] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
-      OneDriveItem.smart_new(self, request("drive/items/#{@id}:#{path}"))
+      OneDriveItem.smart_new(@od, @od.request("drive/items/#{@id}:#{path}"))
     end
 
     # Yes
