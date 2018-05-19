@@ -1,3 +1,4 @@
+require 'time'
 require 'rb1drv/sliced_io'
 
 module Rb1drv
@@ -6,6 +7,7 @@ module Rb1drv
     def initialize(od, api_hash)
       super
       @child_count = api_hash.dig('folder', 'childCount')
+      @cached_gets = {}
     end
 
     # Lists contents of current directory.
@@ -13,7 +15,7 @@ module Rb1drv
     # @return [Array<OneDriveDir,OneDriveFile>] directories and files whose parent is current directory
     def children
       return [] if child_count <= 0
-      @od.request("#{api_path}/children")['value'].map do |child|
+      @cached_children = @od.request("#{api_path}/children")['value'].map do |child|
         OneDriveItem.smart_new(@od, child)
       end
     end
@@ -27,7 +29,8 @@ module Rb1drv
     # @return [OneDriveDir,OneDriveFile] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
-      OneDriveItem.smart_new(@od, @od.request("#{api_path}:#{path}"))
+      @cached_gets[path] ||=
+        OneDriveItem.smart_new(@od, @od.request("#{api_path}:#{path}"))
     end
 
     # Yes
@@ -54,25 +57,33 @@ module Rb1drv
     # @param name [String] directories you'd like to create
     # @return [OneDriveDir] the directory you created
     def mkdir(name)
+      return self if name == '.'
+      name = name[1..-1] if name[0] == '/'
       newdir, *remainder = name.split('/')
-      subdir = @od.request("#{api_path}:/#{newdir}") rescue nil
-      unless subdir
-        subdir = @od.request("#{api_path}/children",
+      subdir = @od.get(newdir)
+      unless subdir.dir?
+        result = @od.request("#{api_path}/children",
           name: newdir,
           folder: {},
           '@microsoft.graph.conflictBehavior': 'rename'
         )
+        subdir = OneDriveDir.new(@od, result)
       end
-      subdir = OneDriveDir.new(@od, subdir)
       remainder.any? ? subdir.mkdir(remainder.join('/')) : subdir
     end
 
-    # Uploads a local file into current remote directory using large file uploading mode.
+    # Uploads a local file into current remote directory.
+    # For files no larger than 4000KiB, uses simple upload mode.
+    # For larger files, uses large file upload mode.
     #
     # Unfinished download is stored as +target_name.incomplete+ and renamed upon completion.
     #
     # @param filename [String] local filename you'd like to upload
-    # @param overwrite [Boolean] whether to overwrite remote file, or rename this
+    # @param overwrite [Boolean] whether to overwrite remote file, or not
+    #   If false:
+    #   For larger files, it renames the uploaded file
+    #   For small files, it skips the file
+    #   Always check existence beforehand if you need consistant behavior
     # @param fragment_size [Integer] fragment size for each upload session, recommended to be multiple of 320KiB
     # @param chunk_size [Integer] IO size for each disk read request and progress notification
     # @param target_name [String] desired remote filename, a relative path to current directory
@@ -86,6 +97,8 @@ module Rb1drv
       conn = nil
       file_size = File.size(filename)
       target_name ||= File.basename(filename)
+      return upload_simple(filename, overwrite: overwrite, target_name: target_name) if file_size <= 4_096_000
+
       resume_file = "#{filename}.1drv_upload"
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
 
@@ -121,7 +134,7 @@ module Rb1drv
             'Content-Length': len.to_s,
             'Content-Range': "bytes #{from}-#{to}/#{file_size}"
           }
-          @od.logger.info "Uploading #{from}-#{to}/#{file_size}"
+          @od.logger.info "Uploading #{from}-#{to}/#{file_size}" if @od.logger
           yield :new_segment, file: filename, from: from, to: to if block_given?
           sliced_io = SlicedIO.new(f, from, to) do |progress, total|
             yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
@@ -134,6 +147,34 @@ module Rb1drv
         File.unlink(resume_file)
       end
       set_mtime(new_file, File.mtime(filename))
+    end
+
+    # Uploads a local file into current remote directory using simple upload mode.
+    #
+    # @return [OneDriveFile,nil] uploaded file
+    def upload_simple(filename, overwrite:, target_name:)
+      target_file = get(filename)
+      exist = target_file.file?
+      return if exist && !overwrite
+      path = nil
+      if exist
+        path = "#{target_file.api_path}/content"
+      else
+        path = "#{api_path}:/#{target_name}:/content"
+      end
+
+      query = {
+        path: File.join('v1.0/me/', path),
+        headers: {
+          'Authorization': "Bearer #{@od.access_token.token}",
+          'Content-Type': 'application/octet-stream'
+        },
+        body: File.read(filename)
+      }
+      result = @od.conn.put(query)
+      result = JSON.parse(result.body)
+      file = OneDriveFile.new(@od, result)
+      set_mtime(file, File.mtime(filename))
     end
 
     def set_mtime(file, time)
