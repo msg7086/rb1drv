@@ -22,7 +22,15 @@ class SlicedIO
     len = [len, @to - @current + 1].min
     # Notify before we read
     @block.call(@current, size)
-    @io.read(len)
+    failed_count = 0
+    begin
+      @io.read(len)
+    rescue Errno::EIO
+      @io.seek(@current)
+      failed_count += 1
+      retry unless failed_count > 5
+      raise
+    end
   ensure
     @current += len
   end
