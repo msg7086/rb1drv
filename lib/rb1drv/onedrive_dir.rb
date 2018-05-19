@@ -127,7 +127,7 @@ module Rb1drv
 
       new_file = nil
       File.open(filename, mode: 'rb', external_encoding: Encoding::BINARY) do |f|
-        resume_position.step(file_size, resume_session['fragment_size']) do |from|
+        resume_position.step(file_size - 1, resume_session['fragment_size']) do |from|
           to = [from + resume_session['fragment_size'], file_size].min - 1
           len = to - from + 1
           headers = {
