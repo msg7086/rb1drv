@@ -31,7 +31,7 @@ module Rb1drv
     def request(uri, data=nil, verb=:post)
       @logger.info(uri) if @logger
       query = {
-        path: File.join('v1.0/me/', uri),
+        path: File.join('v1.0/me/', URI.escape(uri)),
         headers: {
           'Authorization': "Bearer #{@access_token.token}"
         }
