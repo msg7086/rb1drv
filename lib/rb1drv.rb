@@ -7,7 +7,7 @@ module Rb1drv
   #
   # Call +#root+ or +#get+ to get an +OneDriveDir+ or +OneDriveFile+ to wotk with.
   class OneDrive
-    attr_reader :oauth2_client, :logger, :access_token
+    attr_reader :oauth2_client, :logger, :access_token, :conn
     # Instanciates with app id and secret.
     def initialize(client_id, client_secret, callback_url, logger=nil)
       @client_id = client_id
@@ -40,7 +40,7 @@ module Rb1drv
         query[:body] = JSON.generate(data)
         query[:headers]['Content-Type'] = 'application/json'
         @logger.info(query[:body]) if @logger
-        verb = :post unless [:post, :put, :delete].include?(verb)
+        verb = :post unless [:post, :put, :patch, :delete].include?(verb)
         response = @conn.send(verb, query)
       else
         response = @conn.get(query)

@@ -83,6 +83,7 @@ module Rb1drv
     # @yieldparam status [{Symbol => String,Integer}] details
     def upload(filename, overwrite: false, fragment_size: 41_943_040, chunk_size: 1_048_576, target_name: nil, &block)
       raise ArgumentError.new('File not found') unless File.exist?(filename)
+      conn = nil
       file_size = File.size(filename)
       target_name ||= File.basename(filename)
       resume_file = "#{filename}.1drv_upload"
@@ -108,6 +109,7 @@ module Rb1drv
           'fragment_size' => fragment_size
         }
         File.write(resume_file, JSON.pretty_generate(resume_session))
+        conn = Excon.new(resume_session['session_url'])
       end
 
       new_file = nil
@@ -131,7 +133,11 @@ module Rb1drv
         end
         File.unlink(resume_file)
       end
-      new_file
+      set_mtime(new_file, File.mtime(filename))
+    end
+
+    def set_mtime(file, time)
+      OneDriveFile.new(@od, @od.request(file.api_path, {fileSystemInfo: {lastModifiedDateTime: time.utc.iso8601}}, :patch))
     end
   end
 end
