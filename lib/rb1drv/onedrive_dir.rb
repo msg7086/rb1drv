@@ -20,13 +20,22 @@ module Rb1drv
       end
     end
 
+    # Get a child object by name inside current directory.
+    #
+    # @param path [String] name of a child
+    #
+    # @return [OneDriveDir,OneDriveFile,OneDrive404] the drive item you asked
+    def get_child(path)
+      children.find { |child| child.name == path } || OneDrive404.new
+    end
+
     # Get an object by an arbitary path related to current directory.
     #
     # To get an absolute path, make use of OneDrive#get and not this.
     #
     # @param path [String] path relative to current directory
     #
-    # @return [OneDriveDir,OneDriveFile] the drive item you asked
+    # @return [OneDriveDir,OneDriveFile,OneDrive404] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
       @cached_gets[path] ||=
