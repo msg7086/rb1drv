@@ -25,5 +25,9 @@ module Rb1drv
       @access_token = @access_token.refresh! if @access_token.expired?
       @access_token
     end
+
+    def auth_check
+      @access_token = @access_token.refresh! if @access_token.expired?
+    end
   end
 end

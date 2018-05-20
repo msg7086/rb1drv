@@ -17,7 +17,7 @@ module Rb1drv
       @oauth2_client = OAuth2::Client.new client_id, client_secret,
         authorize_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
         token_url: 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
-      @conn = Excon.new('https://graph.microsoft.com/', persistent: true)
+      @conn = Excon.new('https://graph.microsoft.com/', persistent: true, idempotent: true)
       @conn.logger = @logger if @logger
     end
 
@@ -30,6 +30,7 @@ module Rb1drv
     # @return [Hash] response from API.
     def request(uri, data=nil, verb=:post)
       @logger.info(uri) if @logger
+      auth_check
       query = {
         path: File.join('v1.0/me/', URI.escape(uri)),
         headers: {

@@ -112,7 +112,7 @@ module Rb1drv
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
 
       if resume_session && resume_session['session_url']
-        conn = Excon.new(resume_session['session_url'])
+        conn = Excon.new(resume_session['session_url'], idempotent: true)
         result = JSON.parse(conn.get.body)
         resume_position = result.dig('nextExpectedRanges', 0)&.split('-')&.first&.to_i or resume_session = nil
       end
@@ -131,7 +131,7 @@ module Rb1drv
           'fragment_size' => fragment_size
         }
         File.write(resume_file, JSON.pretty_generate(resume_session))
-        conn = Excon.new(resume_session['session_url'])
+        conn = Excon.new(resume_session['session_url'], idempotent: true)
       end
 
       new_file = nil
@@ -148,7 +148,13 @@ module Rb1drv
           sliced_io = SlicedIO.new(f, from, to) do |progress, total|
             yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
           end
-          result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io
+          begin
+            result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
+          rescue Excon::Error::Timeout
+            conn = Excon.new(resume_session['session_url'], idempotent: true)
+            yield :retry, file: filename, from: from, to: to if block_given?
+            retry
+          end
           yield :finish_segment, file: filename, from: from, to: to if block_given?
           result = JSON.parse(result.body)
           new_file = OneDriveFile.new(@od, result) if result.dig('file')
