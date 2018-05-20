@@ -111,11 +111,16 @@ module Rb1drv
       resume_file = "#{filename}.1drv_upload"
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
 
+      result = nil
       loop do
         catch :restart do
           if resume_session && resume_session['session_url']
             conn = Excon.new(resume_session['session_url'], idempotent: true)
-            result = JSON.parse(conn.get.body)
+            loop do
+              result = JSON.parse(conn.get.body)
+              break unless result.dig('error', 'code') == 'accessDenied'
+              sleep 5
+            end
             resume_position = result.dig('nextExpectedRanges', 0)&.split('-')&.first&.to_i or resume_session = nil
           end
 
@@ -160,6 +165,7 @@ module Rb1drv
               yield :finish_segment, file: filename, from: from, to: to if block_given?
               throw :restart if result.body.include?('</html>')
               result = JSON.parse(result.body)
+              throw :restart if result.dig('error', 'code') == 'accessDenied'
               new_file = OneDriveFile.new(@od, result) if result.dig('file')
             end
           end
@@ -167,6 +173,8 @@ module Rb1drv
           File.unlink(resume_file)
           return set_mtime(new_file, File.mtime(filename))
         end
+        # catch :restart here
+        sleep 5 # and retry the whole process
       end
     end
 
