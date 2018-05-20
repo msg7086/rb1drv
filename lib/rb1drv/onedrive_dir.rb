@@ -111,57 +111,63 @@ module Rb1drv
       resume_file = "#{filename}.1drv_upload"
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
 
-      if resume_session && resume_session['session_url']
-        conn = Excon.new(resume_session['session_url'], idempotent: true)
-        result = JSON.parse(conn.get.body)
-        resume_position = result.dig('nextExpectedRanges', 0)&.split('-')&.first&.to_i or resume_session = nil
-      end
-
-      resume_position ||= 0
-
-      if resume_session
-        file_size == resume_session['source_size'] or resume_session = nil
-      end
-
-      unless resume_session
-        result = @od.request("#{api_path}:/#{target_name}:/createUploadSession", item: {'@microsoft.graph.conflictBehavior': overwrite ? 'replace' : 'rename'})
-        resume_session = {
-          'session_url' => result['uploadUrl'],
-          'source_size' => File.size(filename),
-          'fragment_size' => fragment_size
-        }
-        File.write(resume_file, JSON.pretty_generate(resume_session))
-        conn = Excon.new(resume_session['session_url'], idempotent: true)
-      end
-
-      new_file = nil
-      File.open(filename, mode: 'rb', external_encoding: Encoding::BINARY) do |f|
-        resume_position.step(file_size - 1, resume_session['fragment_size']) do |from|
-          to = [from + resume_session['fragment_size'], file_size].min - 1
-          len = to - from + 1
-          headers = {
-            'Content-Length': len.to_s,
-            'Content-Range': "bytes #{from}-#{to}/#{file_size}"
-          }
-          @od.logger.info "Uploading #{from}-#{to}/#{file_size}" if @od.logger
-          yield :new_segment, file: filename, from: from, to: to if block_given?
-          sliced_io = SlicedIO.new(f, from, to) do |progress, total|
-            yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
-          end
-          begin
-            result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
-          rescue Excon::Error::Timeout
+      loop do
+        catch :restart do
+          if resume_session && resume_session['session_url']
             conn = Excon.new(resume_session['session_url'], idempotent: true)
-            yield :retry, file: filename, from: from, to: to if block_given?
-            retry
+            result = JSON.parse(conn.get.body)
+            resume_position = result.dig('nextExpectedRanges', 0)&.split('-')&.first&.to_i or resume_session = nil
           end
-          yield :finish_segment, file: filename, from: from, to: to if block_given?
-          result = JSON.parse(result.body)
-          new_file = OneDriveFile.new(@od, result) if result.dig('file')
+
+          resume_position ||= 0
+
+          if resume_session
+            file_size == resume_session['source_size'] or resume_session = nil
+          end
+
+          unless resume_session
+            result = @od.request("#{api_path}:/#{target_name}:/createUploadSession", item: {'@microsoft.graph.conflictBehavior': overwrite ? 'replace' : 'rename'})
+            resume_session = {
+              'session_url' => result['uploadUrl'],
+              'source_size' => File.size(filename),
+              'fragment_size' => fragment_size
+            }
+            File.write(resume_file, JSON.pretty_generate(resume_session))
+            conn = Excon.new(resume_session['session_url'], idempotent: true)
+          end
+
+          new_file = nil
+          File.open(filename, mode: 'rb', external_encoding: Encoding::BINARY) do |f|
+            resume_position.step(file_size - 1, resume_session['fragment_size']) do |from|
+              to = [from + resume_session['fragment_size'], file_size].min - 1
+              len = to - from + 1
+              headers = {
+                'Content-Length': len.to_s,
+                'Content-Range': "bytes #{from}-#{to}/#{file_size}"
+              }
+              @od.logger.info "Uploading #{from}-#{to}/#{file_size}" if @od.logger
+              yield :new_segment, file: filename, from: from, to: to if block_given?
+              sliced_io = SlicedIO.new(f, from, to) do |progress, total|
+                yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
+              end
+              begin
+                result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
+              rescue Excon::Error::Timeout
+                conn = Excon.new(resume_session['session_url'], idempotent: true)
+                yield :retry, file: filename, from: from, to: to if block_given?
+                retry
+              end
+              yield :finish_segment, file: filename, from: from, to: to if block_given?
+              throw :restart if result.body.include?('</html>')
+              result = JSON.parse(result.body)
+              new_file = OneDriveFile.new(@od, result) if result.dig('file')
+            end
+          end
+          throw :restart unless new_file&.file?
+          File.unlink(resume_file)
+          return set_mtime(new_file, File.mtime(filename))
         end
-        File.unlink(resume_file)
       end
-      set_mtime(new_file, File.mtime(filename))
     end
 
     # Uploads a local file into current remote directory using simple upload mode.
