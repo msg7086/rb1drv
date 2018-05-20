@@ -157,7 +157,8 @@ module Rb1drv
               end
               begin
                 result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
-              rescue Excon::Error::Timeout
+                raise IOError if result.body.include? 'accessDenied'
+              rescue Excon::Error::Timeout, IOError
                 conn = Excon.new(resume_session['session_url'], idempotent: true)
                 yield :retry, file: filename, from: from, to: to if block_given?
                 retry
@@ -165,7 +166,6 @@ module Rb1drv
               yield :finish_segment, file: filename, from: from, to: to if block_given?
               throw :restart if result.body.include?('</html>')
               result = JSON.parse(result.body)
-              throw :restart if result.dig('error', 'code') == 'accessDenied'
               new_file = OneDriveFile.new(@od, result) if result.dig('file')
             end
           end
