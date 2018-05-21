@@ -161,6 +161,7 @@ module Rb1drv
               rescue Excon::Error::Timeout, IOError
                 conn = Excon.new(resume_session['session_url'], idempotent: true)
                 yield :retry, file: filename, from: from, to: to if block_given?
+                sleep 60
                 retry
               end
               yield :finish_segment, file: filename, from: from, to: to if block_given?
@@ -174,7 +175,7 @@ module Rb1drv
           return set_mtime(new_file, File.mtime(filename))
         end
         # catch :restart here
-        sleep 5 # and retry the whole process
+        sleep 60 # and retry the whole process
       end
     end
 
