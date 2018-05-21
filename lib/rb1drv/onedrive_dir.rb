@@ -158,7 +158,11 @@ module Rb1drv
               begin
                 result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
                 raise IOError if result.body.include? 'accessDenied'
-              rescue Excon::Error::Timeout, IOError
+              rescue Excon::Error::Timeout, Excon::Error::Socket
+                conn = Excon.new(resume_session['session_url'], idempotent: true)
+                yield :retry, file: filename, from: from, to: to if block_given?
+                retry
+              rescue IOError
                 conn = Excon.new(resume_session['session_url'], idempotent: true)
                 yield :retry, file: filename, from: from, to: to if block_given?
                 sleep 60
