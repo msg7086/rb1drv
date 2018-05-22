@@ -162,7 +162,7 @@ module Rb1drv
                 yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
               end
               begin
-                result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
+                result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 60, retry_limit: 2
                 raise IOError if result.body.include? 'accessDenied'
               rescue Excon::Error::Socket, IOError
                 # Probably server rejected this request
