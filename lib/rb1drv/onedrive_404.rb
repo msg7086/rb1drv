@@ -3,6 +3,10 @@ module Rb1drv
     def initialize(*_)
     end
 
+    def id
+      '_FILE_NOT_FOUND_'
+    end
+
     # No
     def dir?
       false

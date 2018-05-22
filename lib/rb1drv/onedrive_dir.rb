@@ -110,6 +110,8 @@ module Rb1drv
 
       resume_file = "#{filename}.1drv_upload"
       resume_session = JSON.parse(File.read(resume_file)) rescue nil if File.exist?(resume_file)
+      old_file = OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{target_name}"))
+      new_file = nil
 
       result = nil
       loop do
@@ -159,29 +161,33 @@ module Rb1drv
               begin
                 result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 15, retry_limit: 2
                 raise IOError if result.body.include? 'accessDenied'
-              rescue Excon::Error::Timeout, Excon::Error::Socket
+              rescue Excon::Error::Socket, IOError
+                # Probably server rejected this request
+                throw :restart
+              rescue Excon::Error::Timeout
                 conn = Excon.new(resume_session['session_url'], idempotent: true)
                 yield :retry, file: filename, from: from, to: to if block_given?
                 retry
-              rescue IOError
-                conn = Excon.new(resume_session['session_url'], idempotent: true)
-                yield :retry, file: filename, from: from, to: to if block_given?
-                sleep 60
-                retry
+              ensure
+                yield :finish_segment, file: filename, from: from, to: to if block_given?
               end
-              yield :finish_segment, file: filename, from: from, to: to if block_given?
               throw :restart if result.body.include?('</html>')
               result = JSON.parse(result.body)
               new_file = OneDriveFile.new(@od, result) if result.dig('file')
             end
           end
           throw :restart unless new_file&.file?
-          File.unlink(resume_file)
-          return set_mtime(new_file, File.mtime(filename))
+          break
         end
         # catch :restart here
+        new_file = OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{target_name}"))
+        break if new_file.file? && new_file.id != old_file.id
         sleep 60 # and retry the whole process
       end
+
+      # upload completed
+      File.unlink(resume_file)
+      return set_mtime(new_file, File.mtime(filename))
     end
 
     # Uploads a local file into current remote directory using simple upload mode.
