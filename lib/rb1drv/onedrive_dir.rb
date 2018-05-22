@@ -130,7 +130,7 @@ module Rb1drv
             file_size == resume_session['source_size'] or resume_session = nil
           end
 
-          unless resume_session
+          until resume_session && resume_session['session_url'] do
             result = @od.request("#{api_path}:/#{target_name}:/createUploadSession", item: {'@microsoft.graph.conflictBehavior': overwrite ? 'replace' : 'rename'})
             resume_session = {
               'session_url' => result['uploadUrl'],
@@ -139,6 +139,7 @@ module Rb1drv
             }
             File.write(resume_file, JSON.pretty_generate(resume_session))
             conn = Excon.new(resume_session['session_url'], idempotent: true)
+            sleep 15 unless result['uploadUrl']
           end
 
           new_file = nil
