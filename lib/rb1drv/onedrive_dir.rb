@@ -162,7 +162,7 @@ module Rb1drv
                 yield :progress, file: filename, from: from, to: to, progress: progress, total: total if block_given?
               end
               begin
-                result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, read_timeout: 15, write_timeout: 60, retry_limit: 2
+                result = conn.put headers: headers, chunk_size: chunk_size, body: sliced_io, retry_limit: 2
                 raise IOError if result.body.include? 'accessDenied'
               rescue Excon::Error::Socket, IOError
                 # Probably server rejected this request
@@ -183,9 +183,10 @@ module Rb1drv
           break
         end
         # catch :restart here
+        sleep 60 # wait for server to process the previous request
         new_file = OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{target_name}"))
         break if new_file.file? && new_file.id != old_file.id
-        sleep 60 # and retry the whole process
+        # and retry the whole process
       end
 
       # upload completed
