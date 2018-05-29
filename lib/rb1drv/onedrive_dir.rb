@@ -191,7 +191,7 @@ module Rb1drv
 
       # upload completed
       File.unlink(resume_file)
-      return set_mtime(new_file, File.mtime(filename))
+      return new_file.set_mtime(File.mtime(filename))
     end
 
     # Uploads a local file into current remote directory using simple upload mode.
@@ -219,16 +219,7 @@ module Rb1drv
       result = @od.conn.put(query)
       result = JSON.parse(result.body)
       file = OneDriveFile.new(@od, result)
-      set_mtime(file, File.mtime(filename))
-    end
-
-    def set_mtime(file, time)
-      attempt = 0
-      OneDriveFile.new(@od, @od.request(file.api_path, {fileSystemInfo: {lastModifiedDateTime: time.utc.iso8601}}, :patch))
-    rescue
-      sleep 10
-      attempt += 1
-      retry if attempt <= 3
+      file.set_mtime(File.mtime(filename))
     end
   end
 end

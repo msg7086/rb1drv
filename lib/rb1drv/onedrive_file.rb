@@ -57,5 +57,23 @@ module Rb1drv
       yield :finish_segment, file: target_name if block_given?
       FileUtils.mv(tmpfile, filename)
     end
+
+    # Change last modified time for a remote file.
+    #
+    # NOTICE: OneDrive by default keeps multiple history version for this operation.
+    # NOTICE: You must turn off versioning to prevent multiple counts on disk quota.
+    #
+    # 3 attempts will be made due to delay after a file upload.
+    #
+    # @param time [Time] desired last modified time
+    # @return [OneDriveFile] new file object returned by API
+    def set_mtime(time)
+      attempt = 0
+      OneDriveFile.new(@od, @od.request(api_path, {fileSystemInfo: {lastModifiedDateTime: time.utc.iso8601}}, :patch))
+    rescue
+      sleep 10
+      attempt += 1
+      retry if attempt <= 3
+    end
   end
 end
