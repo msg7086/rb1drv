@@ -15,7 +15,7 @@ module Rb1drv
     # @return [Array<OneDriveDir,OneDriveFile>] directories and files whose parent is current directory
     def children
       return [] if child_count <= 0
-      @cached_children ||= @od.request("#{api_path}/children")['value'].map do |child|
+      @cached_children ||= @od.request("#{api_path}/children?$top=1000")['value'].map do |child|
         OneDriveItem.smart_new(@od, child)
       end
     end
