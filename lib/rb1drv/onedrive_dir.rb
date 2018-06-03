@@ -183,8 +183,11 @@ module Rb1drv
           break
         end
         # catch :restart here
-        sleep 60 # wait for server to process the previous request
-        new_file = OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{target_name}"))
+        6.times do
+          new_file = OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{target_name}"))
+          break if new_file.file? && new_file.id != old_file.id
+          sleep 10 # wait for server to process the previous request
+        end
         break if new_file.file? && new_file.id != old_file.id
         # and retry the whole process
       end
