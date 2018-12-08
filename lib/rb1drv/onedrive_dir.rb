@@ -201,7 +201,7 @@ module Rb1drv
     #
     # @return [OneDriveFile,nil] uploaded file
     def upload_simple(filename, overwrite:, target_name:)
-      target_file = get(filename)
+      target_file = get(target_name)
       exist = target_file.file?
       return if exist && !overwrite
       path = nil
