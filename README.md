@@ -97,6 +97,23 @@ folder.clear_cache!
 folder.get('some_file.mp3') # will make API request again
 ```
 
+by default `OneDrive` returns hash with error when request failed 
+(except file not found - in that case it returns instance of `OneDrive404`)
+
+but you can force library to raise exception instead
+
+```ruby
+od.get('/invalid:folder1') # will return hash with an error
+od.raise_on_failure = true
+begin
+  od.get('/invalid:folder2')
+rescue Errors::ApiError => e
+  puts e.message # "Paths can only contain at most two colons"
+  puts e.code # "invalidRequest"
+  puts e.query_path # "v1.0/me/invalid:folder2"
+end
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/msg7086/rb1drv.

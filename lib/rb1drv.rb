@@ -21,6 +21,14 @@ module Rb1drv
       @conn.logger = @logger if @logger
     end
 
+    def raise_on_failure?
+      @raise_on_failure || false
+    end
+
+    def raise_on_failure=(val)
+      @raise_on_failure = val
+    end
+
     # Issues requests to API endpoint.
     #
     # @param uri [String] relative path of the API
@@ -31,8 +39,9 @@ module Rb1drv
     def request(uri, data=nil, verb=:post)
       @logger.info(uri) if @logger
       auth_check
+      query_path = File.join('v1.0/me/', URI.escape(uri))
       query = {
-        path: File.join('v1.0/me/', URI.escape(uri)),
+        path: query_path,
         headers: {
           'Authorization': "Bearer #{@access_token.token}"
         }
@@ -46,11 +55,14 @@ module Rb1drv
       else
         response = @conn.get(query)
       end
-      JSON.parse(response.body)
+      response_json = JSON.parse(response.body)
+      raise Errors::ApiError.new(response_json, query_path) if raise_on_failure?
+      response_json
     end
   end
 end
 
+require 'rb1drv/errors'
 require 'rb1drv/auth'
 require 'rb1drv/onedrive'
 require 'rb1drv/onedrive_item'
