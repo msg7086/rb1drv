@@ -7,7 +7,7 @@ module Rb1drv
     def initialize(od, api_hash)
       super
       @child_count = api_hash.dig('folder', 'childCount')
-      @cached_gets = {}
+      @cache = {}
     end
 
     # Lists contents of current directory.
@@ -15,8 +15,10 @@ module Rb1drv
     # @return [Array<OneDriveDir,OneDriveFile>] directories and files whose parent is current directory
     def children
       return [] if child_count <= 0
-      @cached_children ||= @od.request("#{api_path}/children?$top=1000")['value'].map do |child|
-        OneDriveItem.smart_new(@od, child)
+      with_cache(:children) do
+        @od.request("#{api_path}/children?$top=1000")['value'].map do |child|
+          OneDriveItem.smart_new(@od, child)
+        end
       end
     end
 
@@ -38,8 +40,9 @@ module Rb1drv
     # @return [OneDriveDir,OneDriveFile,OneDrive404] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
-      @cached_gets[path] ||=
+      with_cache(:get, path) do
         OneDriveItem.smart_new(@od, @od.request("#{api_path}:#{path}"))
+      end
     end
 
     # Yes
@@ -224,5 +227,31 @@ module Rb1drv
       file = OneDriveFile.new(@od, result)
       file.set_mtime(File.mtime(filename))
     end
+
+    def skip_cache?
+      @skip_cache || false
+    end
+
+    def skip_cache=(val)
+      @skip_cache = val
+    end
+
+    # Clears cache for directory
+    def clear_cache!
+      @cache = {}
+    end
+
+    private
+
+    def with_cache(*keys)
+      if skip_cache? || @od.skip_cache?
+        yield
+      elsif !@cache[keys]
+        @cache[keys] = yield
+      else
+        @cache[keys]
+      end
+    end
+
   end
 end

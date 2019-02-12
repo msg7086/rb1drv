@@ -16,5 +16,13 @@ module Rb1drv
       path = "/#{path}" unless path[0] == '/'
       OneDriveItem.smart_new(self, request("drive/root:#{path}"))
     end
+
+    def skip_cache?
+      @skip_cache || false
+    end
+
+    def skip_cache=(val)
+      @skip_cache = val
+    end
   end
 end
