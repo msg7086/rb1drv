@@ -69,6 +69,34 @@ Use `OneDriveFile#save_as` to download a file.
 
 Use `OneDriveDir#upload` to upload a file to target directory.
 
+By default `OneDriveDir` cache `#get` and `#children` requests, but you can disable it globally
+
+```ruby
+od
+folder = od.folder('/my_folder') # will be OneDriveDir instance
+folder.get('some_file.mp3') # will make API request
+folder.get('some_file.mp3') # will make API request again
+```
+
+or locally for particular `OneDriveDir` instance
+
+```ruby
+folder = od.folder('/my_folder') # will be OneDriveDir instance
+folder.skip_cache = true
+folder.get('some_file.mp3') # will make API request
+folder.get('some_file.mp3') # will make API request again
+```
+
+Also you can clear cache for particular `OneDriveDir` instance using `#clear_cache!` method
+
+```ruby
+folder = od.folder('/my_folder') # will be OneDriveDir instance
+folder.get('some_file.mp3') # will make API request
+folder.get('some_file.mp3') # will return cached object
+folder.clear_cache!
+folder.get('some_file.mp3') # will make API request again
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/msg7086/rb1drv.
