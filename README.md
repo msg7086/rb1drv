@@ -97,6 +97,21 @@ folder.clear_cache!
 folder.get('some_file.mp3') # will make API request again
 ```
 
+by default `OneDrive` returns hash with error when request failed
+(except file not found - in that case it returns instance of `OneDrive404`)
+
+but you can force library to raise exception instead
+
+```ruby
+Rb1drv.raise_on_failed_request = true
+begin
+  od.get('/invalid:folder2')
+rescue Rb1drv::Errors::ApiError => e
+  puts e.message # "Resource not found for the segment 'rootfolder2'."
+  puts e.code # "BadRequest"
+end
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/msg7086/rb1drv.
