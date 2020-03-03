@@ -3,6 +3,10 @@ module Rb1drv
     attr_reader :id, :name, :eTag, :size, :mtime, :ctime, :muser, :cuser, :parent_path, :remote_id, :remote_drive_id
     protected
     def initialize(od, api_hash)
+      # always raise Errors::ApiError here because if request failed
+      # initializer will fail with another non-descriptive error.
+      raise Errors::ApiError, api_hash if api_hash['error']
+
       @od = od
       %w(id name eTag size).each do |key|
         instance_variable_set("@#{key}", api_hash[key])
@@ -32,6 +36,10 @@ module Rb1drv
         OneDriveDir.new(od, item_hash)
       elsif item_hash.dig('error', 'code') == 'itemNotFound'
         OneDrive404.new
+      elsif item_hash['error'] && Rb1drv.raise_on_failed_request
+        # optional fail here to determine situation when
+        # request was failed but not because item not found
+        raise Errors::ApiError, item_hash
       else
         item_hash
       end

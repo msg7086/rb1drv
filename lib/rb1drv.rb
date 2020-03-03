@@ -49,8 +49,15 @@ module Rb1drv
       JSON.parse(response.body)
     end
   end
+
+  class << self
+    attr_accessor :raise_on_failed_request
+  end
+
+  self.raise_on_failed_request = false
 end
 
+require 'rb1drv/errors'
 require 'rb1drv/auth'
 require 'rb1drv/onedrive'
 require 'rb1drv/onedrive_item'
