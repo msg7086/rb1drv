@@ -8,7 +8,7 @@ PATH
 GEM
   remote: https://rubygems.org/
   specs:
-    excon (0.62.0)
+    excon (0.72.0)
     faraday (0.15.4)
       multipart-post (>= 1.2, < 3)
     jwt (2.1.0)
