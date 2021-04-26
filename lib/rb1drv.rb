@@ -32,7 +32,7 @@ module Rb1drv
       @logger.info(uri) if @logger
       auth_check
       query = {
-        path: File.join('v1.0/me/', URI.escape(uri)),
+        path: File.join('v1.0/me/', URI.encode_www_form_component(uri).gsub('+', '%20')),
         headers: {
           'Authorization': "Bearer #{@access_token.token}"
         }
