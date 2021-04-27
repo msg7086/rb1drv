@@ -14,7 +14,7 @@ module Rb1drv
     # @return [OneDriveDir,OneDriveFile] the drive item you asked
     def get(path)
       path = "/#{path}" unless path[0] == '/'
-      OneDriveItem.smart_new(self, request("drive/root:#{path}"))
+      OneDriveItem.smart_new(self, request("drive/root:/#{url_path_encode(path[1..-1])}"))
     end
 
     def skip_cache?
