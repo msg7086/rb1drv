@@ -41,7 +41,7 @@ module Rb1drv
     def get(path)
       path = "/#{path}" unless path[0] == '/'
       with_cache(:get, path) do
-        OneDriveItem.smart_new(@od, @od.request("#{api_path}:#{path}"))
+        OneDriveItem.smart_new(@od, @od.request("#{api_path}:/#{@od.url_path_encode(path[1..-1])}"))
       end
     end
 

@@ -32,7 +32,7 @@ module Rb1drv
       @logger.info(uri) if @logger
       auth_check
       query = {
-        path: File.join('v1.0/me/', URI.encode_www_form_component(uri).gsub('+', '%20')),
+        path: File.join('v1.0/me/', uri),
         headers: {
           'Authorization': "Bearer #{@access_token.token}"
         }
@@ -47,6 +47,10 @@ module Rb1drv
         response = @conn.get(query)
       end
       JSON.parse(response.body)
+    end
+
+    def url_path_encode(path)
+      URI.encode_www_form_component(path).gsub('+', '%20')
     end
   end
 
