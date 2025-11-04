@@ -69,11 +69,13 @@ module Rb1drv
     # @return [OneDriveFile] new file object returned by API
     def set_mtime(time)
       attempt = 0
-      OneDriveFile.new(@od, @od.request(api_path, {fileSystemInfo: {lastModifiedDateTime: time.utc.iso8601}}, :patch))
-    rescue
-      sleep 10
-      attempt += 1
-      retry if attempt <= 3
+      begin
+        OneDriveFile.new(@od, @od.request(api_path, {fileSystemInfo: {lastModifiedDateTime: time.utc.iso8601}}, :patch))
+      rescue
+        sleep 10
+        attempt += 1
+        retry if attempt <= 3
+      end
     end
   end
 end
